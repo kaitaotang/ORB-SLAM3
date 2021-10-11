@@ -1495,7 +1495,7 @@ void Tracking::PreintegrateIMU()
                 {
                     mlQueueImuData.pop_front();
                 }
-                // 同样最后一个的imu数据时间戳也不能理当前帧时间间隔多余0.001 
+                // 同样最后一个的imu数据时间戳也不能离当前帧时间间隔多余0.001 
                 // ? (时间戳本身的差值,单位是s秒,tum数据集里面是19位时间戳,单位为ns,这里可能只保留了10位整数和9位小数)
                 else if(m->t<mCurrentFrame.mTimeStamp-0.001l)
                 {
@@ -1543,12 +1543,13 @@ void Tracking::PreintegrateIMU()
             // 时间差作为积分量
             float tab = mvImuFromLastFrame[i+1].t-mvImuFromLastFrame[i].t;
             // 根据上面分析的IMU与图像帧的时序分析，获取当前imu到上一帧的时间间隔
-            // 在加加速度不变的假设上算出第一帧图像到第二个imu数据的中值积分
+            // 在加速度不变的假设下，算出第一帧图像到第二个imu数据的中值积分
             float tini = mvImuFromLastFrame[i].t-mCurrentFrame.mpPrevFrame->mTimeStamp;
+            //这里目的是将IMU的时间戳和图像帧的时间戳对齐，找到时间戳所在的imu加速度和角速度的值
             // ? 这里采用离散中值积分进行预积分,获取当前imu到上一帧的时间间隔
-            // 设当前时刻imu的加速度a0，下一时刻加速度a1，时间间隔tab 为t10，tini t0p
-            // 正常情况下时为了求上一帧到当前时刻imu的一个平均加速度，但是imu时间不会正好落在上一帧图像的时刻，需要做补偿，要求得a0时刻到上一帧这段时间加速度的改变量
-            // 有了这个改变量将其加到a0上之后就可以表示上一帧时的加速度了。其中a0 - (a1-a0)*(tini/tab) 为上一帧时刻的加速度再加上a1 之后除以2就为这段时间的加速度平均值
+            // 设当前时刻（上一帧）imu的加速度a0，下一时刻加速度a1，时间间隔tab 为t10，tini t0p
+            // 正常情况下是为了求上一帧到当前时刻imu的一个平均加速度，但是imu时间不会正好落在上一帧图像的时刻，需要做补偿，要计算a0时刻到上一帧这段时间加速度的改变量
+            // 有了这个改变量将其加到a0上之后就可以表示上一帧时的加速度了。其中a0 - (a1-a0)*(tini/tab) 为上一帧时刻的加速度。再加上a1 之后除以2就为这段时间的加速度平均值
             // 其中tstep表示a1到上一帧的时间间隔，a0 - (a1-a0)*(tini/tab)这个式子中tini可以是正也可以是负表示时间上的先后，(a1-a0)也是一样，多种情况下这个式子依然成立
             acc = (mvImuFromLastFrame[i].a+mvImuFromLastFrame[i+1].a-
                     (mvImuFromLastFrame[i+1].a-mvImuFromLastFrame[i].a)*(tini/tab))*0.5f;

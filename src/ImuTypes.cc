@@ -349,22 +349,22 @@ void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, con
 
     //Matrices to compute covariance
     // Step 1.构造协方差矩阵 参考Forster论文公式（62），邱笑晨的《预积分总结与公式推导》的P12页也有详细推导:η_ij = A * η_i,j-1 + B_j-1 * η_j-1
-    // ? 位姿第一个被更新，速度第二（因为这两个只依赖前一帧计算的旋转矩阵和速度），后面再更新旋转角度
+    // ??位姿第一个被更新，速度第二（因为这两个只依赖前一帧计算的旋转矩阵和速度），后面再更新旋转角度
     // 噪声矩阵的传递矩阵，这部分用于计算i到j-1历史噪声或者协方差
     cv::Mat A = cv::Mat::eye(9,9,CV_32F);
     // 噪声矩阵的传递矩阵，这部分用于计算j-1新的噪声或协方差，这两个矩阵里面的数都是当前时刻的，计算主要是为了下一时刻使用
     cv::Mat B = cv::Mat::zeros(9,6,CV_32F);
     
-    // 考虑偏置后的加速度、角速度
+    // 考虑偏置后的加速度、角速度， b表示偏置
     cv::Mat acc = (cv::Mat_<float>(3,1) << acceleration.x-b.bax,acceleration.y-b.bay, acceleration.z-b.baz);
     cv::Mat accW = (cv::Mat_<float>(3,1) << angVel.x-b.bwx, angVel.y-b.bwy, angVel.z-b.bwz);
 
-    // 记录平均加速度和角速度
+    // 记录平均加速度和角速度，dT什么意思(答：总时间)
     avgA = (dT*avgA + dR*acc*dt)/(dT+dt);
     avgW = (dT*avgW + accW*dt)/(dT+dt);
     
     // Update delta position dP and velocity dV (rely on no-updated delta rotation)
-    // 根据没有更新的dR来更新dP与dV  eq.(38)
+    // 根据没有更新的dR来更新dP与dV  eq.(38), 预积分利用i到k的dP, dV更新i到k+1的dP和dV！
     dP = dP + dV*dt + 0.5f*dR*acc*dt*dt;	// 对应viorb论文的公式（2）的第三个，位移积分
     dV = dV + dR*acc*dt;					// 对应viorb论文的公式（2）的第二个，速度积分
 
@@ -408,7 +408,7 @@ void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, con
     // Update rotation jacobian wrt bias correction
     // 计算偏置的雅克比矩阵，r对bg的导数，∂ΔRij/∂bg = (ΔRjj-1) * ∂ΔRij-1/∂bg - Jr(j-1)*t
     // 论文作者对forster论文公式的基础上做了变形，然后递归更新，参见 https://github.com/UZ-SLAMLab/ORB_SLAM3/issues/212
-    // ? 为什么先更新JPa、JPg、JVa、JVg最后更新JRg? 答：这里必须先更新dRi才能更新到这个值，但是为什么JPg和JVg依赖的上一个JRg值进行更新的？
+    // ?? 为什么先更新JPa、JPg、JVa、JVg最后更新JRg? 答：这里必须先更新dRi才能更新到这个值，但是为什么JPg和JVg依赖的上一个JRg值进行更新的？
     JRg = dRi.deltaR.t()*JRg - dRi.rightJ*dt;
 
     // Total integrated time

@@ -125,7 +125,7 @@ System::System(const string &strVocFile,                //词袋文件所在路�
 
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
-    // 创建跟踪线程（主线程）,不会立刻开启,会在对图像和imu预处理后在main主线程种执行
+    // 创建跟踪线程（主线程）,不会立刻开启,会在对图像和imu预处理后在main主线程中执行
     cout << "Seq. Name: " << strSequence << endl;
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
                              mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, strSequence);

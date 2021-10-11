@@ -63,13 +63,13 @@ int main(int argc, char **argv)
     vector<int> nImu;
     vector<int> first_imu(num_seq,0);
 
-    vstrImageLeftFilenames.resize(num_seq);
-    vstrImageRightFilenames.resize(num_seq);
+    vstrImageLeftFilenames.resize(num_seq);  //左视照片
+    vstrImageRightFilenames.resize(num_seq);  //右视照片
     vTimestampsCam.resize(num_seq);
-    vAcc.resize(num_seq); // 加速度计
-    vGyro.resize(num_seq);//
-    vTimestampsImu.resize(num_seq);
-    nImages.resize(num_seq);
+    vAcc.resize(num_seq);  // 加速度计
+    vGyro.resize(num_seq);  // 陀螺仪
+    vTimestampsImu.resize(num_seq);  // IMU时间戳
+    nImages.resize(num_seq);  // 每个sequence里照片数量
     nImu.resize(num_seq);
 
     int tot_images = 0;
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
 
         while(vTimestampsImu[seq][first_imu[seq]]<=vTimestampsCam[seq][0])
             first_imu[seq]++;
-        first_imu[seq]--; // first imu measurement to be considered
+        first_imu[seq]--; // first imu measurement to be considered，找到第一帧IMU，这是与相机时间最近，并小于相机时间的IMU数据
 
     }
 
