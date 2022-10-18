@@ -4334,6 +4334,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int&
     vpOptimizableKFs.reserve(Nd);
     vpOptimizableKFs.push_back(pKF);
     pKF->mnBALocalForKF = pKF->mnId;
+    // 将连续的maxOpt（最多10帧或25或map中所有的keyframe）组成一个滑窗
     for(int i=1; i<Nd; i++)
     {
         if(vpOptimizableKFs.back()->mPrevKF)

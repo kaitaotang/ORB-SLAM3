@@ -221,7 +221,8 @@ void LoopClosing::Run()
                         g2o::Sim3 g2oTwc(Converter::toMatrix3d(Twc.rowRange(0, 3).colRange(0, 3)),Converter::toVector3d(Twc.rowRange(0, 3).col(3)),1.0);
                         
                         // mg2oLoopScw是通过回环检测的Sim3计算出的回环矫正后的当前关键帧的初始位姿, Twc是当前关键帧回环矫正前的位姿.
-                        // g2oSww_new 可以理解为correction           
+                        // g2oSww_new 可以理解为correction
+                        // g2oSww_new 表示Sw1w2,新旧坐标系之间的变换
                         g2o::Sim3 g2oSww_new = g2oTwc*mg2oLoopScw;
                         
                         // 拿到 roll ,pitch ,yaw
@@ -230,7 +231,7 @@ void LoopClosing::Run()
                         //cout << "Rw2w1: " << g2oSww_new.rotation().toRotationMatrix() << endl;
                         //cout << "Angle Rw2w1: " << 180*phi/3.14 << endl;
                         //cout << "scale w2w1: " << g2oSww_new.scale() << endl;
-                        // 这里算是通过imu重力方向验证回环结果, 如果pitch或roll角度偏差稍微有一点大,则回环失败. 对phi容忍比较大(20度)
+                        // 这里算是通过imu重力方向验证回环结果, 如果pitch或roll角度偏差(0.45度)稍微有一点大,则回环失败. 对phi容忍比较大(20度)
                         if (fabs(phi(0))<0.008f && fabs(phi(1))<0.008f && fabs(phi(2))<0.349f)
                         {
                             // 如果是imu模式
@@ -395,6 +396,7 @@ bool LoopClosing::NewDetectCommonRegions()
     bool bCheckSpatial = false;
     // Step 3.1 回环的时序几何校验: 这里的判断条件里mnLoopNumCoincidences刚开始为0, 所以可以先跳过看后面
     // 如果回环的共视几何验证成功帧数目大于0
+    // ”mnLoopNumCoincidences > 0”表示“上个”关键帧成功找到了回环帧，并计算出了约束，通过了连续性检验，下面开始做的是融合几何校验。
     if(mnLoopNumCoincidences > 0)
     {
         bCheckSpatial = true;
@@ -477,11 +479,13 @@ bool LoopClosing::NewDetectCommonRegions()
     bool bMergeDetectedInKF = false;
     // Step 3.2 融合的时序几何校验: 这里的判断条件里mnMergeNumCoincidences刚开始为0, 所以可以先跳过看后面
     // 如果融合的共视几何验证成功帧数目大于0
+    // 进入“mnMergeNumCoincidences > 0”表示“上个”关键帧成功找到了merge帧，并计算出了约束，通过了连续性检验，下面开始做的是融合几何校验。
     if(mnMergeNumCoincidences > 0)
     {
         // Find from the last KF candidates
         // 通过上一关键帧的信息,计算新的当前帧的sim3 
         // Tcl = Tcw*Twl
+        //mg2oMergeSlwl(loop-current-keyframe)-w(world)
         cv::Mat mTcl = mpCurrentKF->GetPose() * mpMergeLastCurrentKF->GetPoseInverse();
         g2o::Sim3 gScl(Converter::toMatrix3d(mTcl.rowRange(0, 3).colRange(0, 3)),Converter::toVector3d(mTcl.rowRange(0, 3).col(3)),1.0);
         g2o::Sim3 gScw = gScl * mg2oMergeSlw;
@@ -861,6 +865,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, 
                     // 统计窗口内有多少地图点能在当前关键中找到匹配
                     numBoWMatches++;
                     //记录窗口中的地图点能在当前关键帧中找到的匹配的点
+                    // 这里的k会重复赋值呀，最终只存储窗口中最后一帧的匹配点？？？bug？
                     vpMatchedPoints[k]= pMPi_j;
                     // 记录上面的地图点分别对应窗口中的关键帧(数量的上限是当前关键帧地图点的数量)
                     vpKeyFrameMatchedMP[k] = vpCovKFi[j];
@@ -909,7 +914,7 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, 
                 // Match by reprojection
                 //int nNumCovisibles = 5;
                 vpCovKFi.clear();
-                // 拿到窗口内匹配最多的帧的最佳5个共视帧和它自己组成的窗口
+                // 拿到窗口内匹配最多的帧的最佳nNumCovisibles=5个共视帧和它自己组成的窗口
                 vpCovKFi = pMostBoWMatchesKF->GetBestCovisibilityKeyFrames(nNumCovisibles);
                 int nInitialCov = vpCovKFi.size();
                 vpCovKFi.push_back(pMostBoWMatchesKF);
@@ -1456,7 +1461,7 @@ void LoopClosing::CorrectLoop()
     // into the current keyframe and neighbors using corrected poses.
     // Fuse duplications.
     // Step 4：将闭环相连关键帧组mvpLoopMapPoints 投影到当前关键帧组中，进行匹配，融合，新增或替换当前关键帧组中KF的地图点
-    // 因为 闭环相连关键帧组mvpLoopMapPoints 在地图中时间比较久经历了多次优化，认为是准确的
+    // 因为 闭环相连关键帧组mvpLoopMapPoints（所有点，包含匹配成功的和没有匹配成功的） 在地图中时间比较久经历了多次优化，认为是准确的
     // 而当前关键帧组中的关键帧的地图点是最近新计算的，可能有累积误差
     // CorrectedSim3：存放矫正后当前关键帧的共视关键帧，及其世界坐标系下Sim3 变换
     SearchAndFuse(CorrectedSim3, mvpLoopMapPoints);

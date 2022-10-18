@@ -2034,7 +2034,7 @@ void Tracking::Track()
                     if((mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO)) 
                     {
                         // IMU模式下可以用IMU来预测位姿，看能否拽回来
-                        // Step 6.4 如果当前地图中IMU已经成功初始化，就用IMU数据预测位姿
+                        // Step 6.4 如果当前地图中IMU已经成功初始化，就用IMU数据预测位姿,赋给当前帧做位姿，如果接下来的帧再进入到Track()函数中，跟踪成功了，这步就游泳了
                         if(pCurrentMap->isImuInitialized())
                             PredictStateIMU();
                         else
@@ -2258,7 +2258,7 @@ void Tracking::Track()
                 Verbose::PrintMess("Track lost for less than one second...", Verbose::VERBOSITY_NORMAL);
                 if(!pCurrentMap->isImuInitialized() || !pCurrentMap->GetIniertialBA2())
                 {
-                    // IMU模式下IMU没有成功初始化或者没有完成IMU BA，则重置当前地图
+                    // IMU模式下IMU没有成功初始化 或者 没有完成IMU BA，则重置当前地图
                     cout << "IMU is not or recently initialized. Reseting active map..." << endl;
                     mpSystem->ResetActiveMap();
                 }
